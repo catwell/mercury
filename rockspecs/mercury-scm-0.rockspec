@@ -10,7 +10,7 @@ description = {
         for creating web applications in Lua, quickly and painlessly.
     ]],
     license = "MIT/X11",
-    homepage = "http://github.com/catwell/mercury"
+    homepage = "https://github.com/catwell/mercury"
 }
 dependencies = {
     "lua ~> 5.1",

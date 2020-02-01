@@ -1,7 +1,7 @@
 #!/usr/bin/lua
 --[[
-Mercury: http://github.com/nrk/mercury/
-Xavante: http://www.keplerproject.org/xavante/
+Mercury: https://github.com/catwell/mercury/
+Xavante: https://keplerproject.github.io/xavante/
 
 Usage: mercury APPNAME
 ]]
