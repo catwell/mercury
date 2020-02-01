@@ -14,10 +14,10 @@ description = {
 }
 dependencies = {
     "lua ~> 5.1",
-    "copas ~> 1.1",
-    "wsapi ~> 1.5",
-    "xavante ~> 2.2",
-    "wsapi-xavante ~> 1.5",
+    "copas ~> 1.2",
+    "wsapi ~> 1.7",
+    "xavante ~> 2.4",
+    "wsapi-xavante ~> 1.7",
 }
 
 build = {

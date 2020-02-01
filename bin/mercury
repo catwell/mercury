@@ -7,8 +7,9 @@ Usage: mercury APPNAME
 ]]
 
 pcall(require, 'luarocks.require')
-require 'xavante'
-require 'wsapi.xavante'
+local xavante = require 'xavante'
+local wsapi = require 'wsapi'
+wsapi.xavante = require 'wsapi.xavante'
 
 if not arg[1] then
     print([[
