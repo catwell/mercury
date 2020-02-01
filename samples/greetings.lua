@@ -3,9 +3,9 @@ require 'mercury'
 module('greetings', package.seeall, mercury.application)
 
 local languages = {
-    en = 'Hi %s, how are you?', 
-    it = 'Ciao %s, come stai?', 
-    ja = '今日は%sさん、お元気ですか。 ' 
+    en = 'Hi %s, how are you?',
+    it = 'Ciao %s, come stai?',
+    ja = '今日は%sさん、お元気ですか。 '
 }
 
 local response_body = [[
@@ -24,7 +24,7 @@ local function localized_message(language)
     return languages[language] or languages.en
 end
 
-get('/', function() 
+get('/', function()
     return response_body:format([[
         Welcome to the first Mercury application ever built!<br /><br />
         <form action="./say_hi/" method="post">
@@ -40,8 +40,8 @@ get('/', function()
     ]])
 end)
 
-post('/say_hi/', function() 
-    if params.name == '' or not params.name then 
+post('/say_hi/', function()
+    if params.name == '' or not params.name then
         return response_body:format([[
             Sorry but I do not believe you, you can not have no name ;-)
             Please <a href="javascript:history.go(-1)">try again</a>.
@@ -51,16 +51,16 @@ post('/say_hi/', function()
     local message = localized_message(params.lang)
 
     return response_body:format(
-        message:format(params.name) .. 
-        '<br/><br/>If you do not like POST-based greetings, then ' .. 
-        string.format('<a href="../say_hi/%s/%s/">you can try this!</a>', 
-            params.lang or 'en', 
+        message:format(params.name) ..
+        '<br/><br/>If you do not like POST-based greetings, then ' ..
+        string.format('<a href="../say_hi/%s/%s/">you can try this!</a>',
+            params.lang or 'en',
             params.name
         )
     )
 end)
 
-get('/say_hi/:lang/:name/', function() 
+get('/say_hi/:lang/:name/', function()
     local message = localized_message(params.lang)
     return response_body:format(message:format(params.name))
 end)

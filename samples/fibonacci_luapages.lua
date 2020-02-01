@@ -28,7 +28,7 @@ local templates = {
 
     <p>You can try one of the following samples:</p>
     <ul>
-      <% for _, maxn in pairs(samples) do 
+      <% for _, maxn in pairs(samples) do
           local link = "/fibonacci/" .. maxn
       %>
       <li>
@@ -40,7 +40,7 @@ local templates = {
     <p>
       <form action='./fibonacci/' method='post' onsubmit='return check_fibonacci()'>
         <label for='your_number'>
-          If you prefer, you can generate Fibonacci numbers up to 
+          If you prefer, you can generate Fibonacci numbers up to
         </label>
         <input id='your_number' name='limit' type='text' />
         <input type='submit' value='Try it yourself!' />
@@ -83,7 +83,7 @@ helpers(function()
     function fibonacci(maxn)
         return coroutine.wrap(function()
             local x, y = 0, 1
-            while x <= maxn do 
+            while x <= maxn do
                 coroutine.yield(x)
                 x, y = y, x + y
             end
@@ -91,11 +91,11 @@ helpers(function()
     end
 end)
 
-get('/', function() 
+get('/', function()
     t.lp(templates.index, { samples = get_samples(4) })
 end)
 
-get('/fibonacci/:limit', function() 
+get('/fibonacci/:limit', function()
     t.lp(templates.fibonacci)
 end)
 

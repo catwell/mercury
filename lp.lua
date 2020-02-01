@@ -65,8 +65,8 @@ function translate(s)
      if not __outfunc then
 	local insert = tinsert
 	local tostring = tostring
-	__outfunc = function (s) 
-		       if s then 
+	__outfunc = function (s)
+		       if s then
 			  insert(__result, tostring(s))
 		       end
 		    end

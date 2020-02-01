@@ -1,4 +1,4 @@
--- You can also define your application in a dedicated environment without 
+-- You can also define your application in a dedicated environment without
 -- polluting Lua's global scope, you can think of it as a sort of Sinatra::Base
 
 require 'mercury'
