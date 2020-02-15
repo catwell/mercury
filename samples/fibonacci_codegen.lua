@@ -1,5 +1,5 @@
-require 'luarocks.require'
 local mercury = require 'mercury'
+local t = mercury.t
 
 --[[
     lua-CodeGen is a "safe" template engine.
@@ -96,7 +96,7 @@ mercury.get('/', function()
     t.codegen(templates, 'index', { samples = get_samples(4) })
 end)
 
-mercury.get('/fibonacci/:limit', function()
+mercury.get('/fibonacci/:limit', function(params)
     local numbers = {}
     for val in fibonacci(tonumber(params.limit)) do
         numbers[#numbers+1] = val
@@ -104,7 +104,7 @@ mercury.get('/fibonacci/:limit', function()
     t.codegen(templates, 'fibonacci', { numbers = numbers })
 end)
 
-mercury.post('/fibonacci/', function()
+mercury.post('/fibonacci/', function(params)
     local numbers = {}
     for val in fibonacci(tonumber(params.limit)) do
         numbers[#numbers+1] = val

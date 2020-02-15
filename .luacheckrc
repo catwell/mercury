@@ -1,8 +1,7 @@
-std = "lua51"
+std = "lua53"
 
 exclude_files = {
     ".lua",
-    "samples" -- for now
 }
 
 ignore = {

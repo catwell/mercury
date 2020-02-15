@@ -38,7 +38,7 @@ mercury.get('/', function()
     ]])
 end)
 
-mercury.post('/say_hi/', function()
+mercury.post('/say_hi/', function(params)
     if params.name == '' or not params.name then
         return response_body:format([[
             Sorry but I do not believe you, you can not have no name ;-)
@@ -58,7 +58,7 @@ mercury.post('/say_hi/', function()
     )
 end)
 
-mercury.get('/say_hi/:lang/:name/', function()
+mercury.get('/say_hi/:lang/:name/', function(params)
     local message = localized_message(params.lang)
     return response_body:format(message:format(params.name))
 end)

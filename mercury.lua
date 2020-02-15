@@ -3,7 +3,6 @@ wsapi.request = require 'wsapi.request'
 wsapi.response = require 'wsapi.response'
 wsapi.util = require 'wsapi.util'
 
-local mercury_env = getfenv()
 local route_env   = setmetatable({ }, { __index = _G })
 local route_table = { GET = {}, POST = {}, PUT = {}, DELETE = {} }
 
@@ -11,20 +10,14 @@ local function set_helper(environment, name, method)
     if type(method) ~= 'function' then
         error('"' .. name .. '" is an invalid helper, only functions are allowed.')
     end
-    environment[name] = setfenv(method, environment)
-end
-
-local function set_helpers(environment, methods)
-    for name, method in pairs(methods) do
-        set_helper(environment, name, method)
-    end
+    environment[name] = method
 end
 
 --
--- *** ext functions *** --
+-- *** templating *** --
 --
 
-function mercury_env.merge_tables(...)
+local function merge_tables(...)
     local numargs, out = select('#', ...), {}
     for i = 1, numargs do
         local t = select(i, ...)
@@ -35,75 +28,63 @@ function mercury_env.merge_tables(...)
     return out
 end
 
---
--- *** route environment *** --
---
-
-(function() setfenv(1, route_env)
--- This is a glorious trick to setup a different environment for routes since
--- Lua functions inherits the environment in which they are *created*! This
--- will not be compatible with Lua 5.2, for which the new _ENV should provide
--- a much more clean way to achieve a similar result.
-
-   -- TODO: Create a function like setup_route_environment(fun)
-    local templating_engines = {
-        haml     = function(template, options, locals)
-            local haml = require 'haml'
-            local h = haml.new(options)
-            return function(env)
-                return h:render(template, mercury_env.merge_tables(env, locals))
-            end
-        end,
-        cosmo    = function(template, values)
-            local cosmo = require 'cosmo'
-            return function(env_)
-                return cosmo.fill(template, values)
-            end
-        end,
-        string   = function(template, ...)
-            local arg = {...}
-            return function(env_)
-                return string.format(template, unpack(arg))
-            end
-        end,
-        lp       = function(template, values)
-            return function(env)
-                local lp = require 'lp'
-                return lp.fill(template, mercury_env.merge_tables(env, values))
-            end
-        end,
-        codegen  = function(template, top, values)
-            local CodeGen = require 'CodeGen'
-            return function(env)
-                local tmpl = CodeGen(template, values, env)
-                return tmpl(top)
-            end
-        end,
-    }
-
-    local route_methods = {
-        pass = function()
-            coroutine.yield({ pass = true })
-        end,
-        -- Use a table to group template-related methods to prevent name clashes.
-        t    = setmetatable({ }, {
-            __index = function(env_, name)
-                local engine = templating_engines[name]
-
-                if type(engine) == nil then
-                    error('cannot find template renderer "'.. name ..'"')
-                end
-
-                return function(...)
-                    coroutine.yield({ template = engine(...) })
+local templating_engines = {
+    cosmo    = function(template, values)
+        local cosmo = require 'cosmo'
+        return function()
+            return cosmo.fill(template, values)
+        end
+    end,
+    string   = function(template, ...)
+        local arg = {...}
+        return function()
+            return string.format(template, table.unpack(arg))
+        end
+    end,
+    lp       = function(template, values)
+        return function()
+            local lp = require 'cgilua.lp'
+            lp.setoutfunc("mercury_lp_write")
+            local t = {}
+            local function of(...)
+                local numargs = select('#', ...)
+                for i = 1, numargs do
+                    local s = select(i, ...)
+                    table.insert(t, s)
                 end
             end
-        }),
-    }
+            lp.compile(
+                template, template,
+                setmetatable(
+                    merge_tables(route_env, values, {mercury_lp_write = of}),
+                    {__index = _G}
+                )
+            )()
+            return table.concat(t)
+        end
+    end,
+    codegen  = function(template, top, values)
+        local CodeGen = require 'CodeGen'
+        return function()
+            local tmpl = CodeGen(template, values, route_env)
+            return tmpl(top)
+        end
+    end,
+}
 
-    for k, v in pairs(route_methods) do route_env[k] = v end
+local template = setmetatable({ }, {
+    __index = function(env_, name)
+        local engine = templating_engines[name]
 
-setfenv(1, mercury_env) end)()
+        if type(engine) == nil then
+            error('cannot find template renderer "'.. name ..'"')
+        end
+
+        return function(...)
+            coroutine.yield({ template = engine(...) })
+        end
+    end
+})
 
 --
 -- *** application *** --
@@ -153,7 +134,7 @@ end
 local function add_route(verb, path, handler, options)
     table.insert(route_table[verb], {
         pattern = compile_url_pattern(path),
-        handler = setfenv(handler, route_env),
+        handler = handler,
         options = options,
     })
 end
@@ -260,7 +241,7 @@ local function run(application, wsapi_env)
 
     for route in router(application, state, request, response) do
         local coroute = coroutine.create(route)
-        local success, output = coroutine.resume(coroute)
+        local success, output = coroutine.resume(coroute, route_env.params, route_env)
 
         if not success then
             return error_500(response, output)
@@ -274,17 +255,16 @@ local function run(application, wsapi_env)
         local output_type = type(output)
         if output_type == 'function' then
             -- First attempt at streaming responses using coroutines.
+            -- TODO untested
             return response.status, response.headers, coroutine.wrap(output)
         elseif output_type == 'string' then
             response:write(output)
             return response:finish()
         elseif output.template then
-            response:write(output.template(getfenv(route)) or 'template rendered an empty body')
+            response:write(output.template() or 'template rendered an empty body')
             return response:finish()
-        else
-            if not output.pass then
-                return error_500(response, output)
-            end
+        elseif not output.pass then
+            return error_500(response, output)
         end
     end
 
@@ -307,23 +287,10 @@ local application_methods = {
     put    = function(path, method, options_) add_route('PUT', path, method) end,
     delete = function(path, method, options_) add_route('DELETE', path, method) end,
     helper  = function(name, method) set_helper(route_env, name, method) end,
-    helpers = function(helpers)
-        if type(helpers) == 'table' then
-            set_helpers(route_env, helpers)
-        elseif type(helpers) == 'function' then
-            local temporary_env = setmetatable({}, {
-                __newindex = function(_, k, v)
-                    set_helper(route_env, k, v)
-                end,
-            })
-            setfenv(helpers, temporary_env)()
-        -- else
-            -- TODO: raise an error?
-        end
-    end,
+    pass = function() coroutine.yield({ pass = true }) end,
 }
 
-local function app(application, fun)
+local function app(application)
     if type(application) == 'string' then
         application = { _NAME = application }
     else
@@ -338,18 +305,10 @@ local function app(application, fun)
         return run(application, wsapi_env)
     end
 
-    local mt = { __index = _G }
-
-    if fun then
-        setfenv(fun, setmetatable(application, mt))()
-    else
-        setmetatable(application, mt)
-    end
-
-    return application
+    return setmetatable(application, {__index = _G})
 end
 
 return setmetatable(
-    {application = app},
+    {application = app, t = template},
     {__index = application_methods}
 )

@@ -1,5 +1,5 @@
-require 'luarocks.require'
 local mercury = require 'mercury'
+local t = mercury.t
 
 local templates = {
     index = [[
@@ -69,24 +69,22 @@ local templates = {
 ]],
 }
 
-mercury.helpers(function()
-    function get_samples(how_many)
-        local samples = {}
-        for _ = 1, how_many do
-            table.insert(samples, math.random(1, 1000000))
-        end
-        return samples
+local function get_samples(how_many)
+    local samples = {}
+    for _ = 1, how_many do
+        table.insert(samples, math.random(1, 1000000))
     end
+    return samples
+end
 
-    function fibonacci(maxn)
-        return coroutine.wrap(function()
-            local x, y = 0, 1
-            while x <= maxn do
-                coroutine.yield(x)
-                x, y = y, x + y
-            end
-        end)
-    end
+mercury.helper('fibonacci', function(maxn)
+    return coroutine.wrap(function()
+        local x, y = 0, 1
+        while x <= maxn do
+            coroutine.yield(x)
+            x, y = y, x + y
+        end
+    end)
 end)
 
 mercury.get('/', function()
