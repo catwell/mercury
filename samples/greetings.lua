@@ -1,6 +1,4 @@
-require 'mercury'
-
-module('greetings', package.seeall, mercury.application)
+local mercury = require 'mercury'
 
 local languages = {
     en = 'Hi %s, how are you?',
@@ -24,7 +22,7 @@ local function localized_message(language)
     return languages[language] or languages.en
 end
 
-get('/', function()
+mercury.get('/', function()
     return response_body:format([[
         Welcome to the first Mercury application ever built!<br /><br />
         <form action="./say_hi/" method="post">
@@ -40,7 +38,7 @@ get('/', function()
     ]])
 end)
 
-post('/say_hi/', function()
+mercury.post('/say_hi/', function()
     if params.name == '' or not params.name then
         return response_body:format([[
             Sorry but I do not believe you, you can not have no name ;-)
@@ -60,7 +58,9 @@ post('/say_hi/', function()
     )
 end)
 
-get('/say_hi/:lang/:name/', function()
+mercury.get('/say_hi/:lang/:name/', function()
     local message = localized_message(params.lang)
     return response_body:format(message:format(params.name))
 end)
+
+return mercury.application()

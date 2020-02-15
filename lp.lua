@@ -12,8 +12,6 @@ local getfenv, setfenv, setmetatable = getfenv, setfenv, setmetatable
 local assert, loadstring, tostring = assert, loadstring, tostring
 local base = _G
 
-module(...)
-
 --
 -- Builds a piece of Lua code which outputs the (part of the) given string.
 -- @param s String.
@@ -37,7 +35,7 @@ end
 -- @param s String to translate.
 -- @return String with translated code.
 ----------------------------------------------------------------------------
-function translate(s)
+local function translate(s)
    s = gsub(s, "<%%(.-)%%>", "<?lua %1 ?>")
    local res = {}
    local start = 1   -- start of   print("XXXX") untranslated part in `s'
@@ -103,9 +101,9 @@ setmetatable(cache, { __index = function (tab, key)
 -- @param chunkname String with the name of the chunk, for debugging purposes.
 -- @return Function with the resulting translation.
 
-function compile(string, chunkname)
+local function compile(string, chunkname)
    chunkname = chunkname or string
-   local f, err = cache[string][chunkname]
+   local f = cache[string][chunkname]
    if f then return f end
    f = assert(loadstring(translate(string), chunkname))
    setfenv(f, { tinsert = tinsert, concat = concat,
@@ -121,15 +119,16 @@ end
 -- @param env Global environment for template
 -- @return String with result of template application
 
-function fill(template, env)
-  local env  = env or {}
+local function fill(template, env)
+  env  = env or {}
   local prog = compile(template)
-  local out  = {}
+  local r  = {}
   local outfunc = function (s)
-        tinsert(out, s)
+        tinsert(r, s)
      end
   setmetatable(env, { __index = base }) -- combine with global environment
   prog(env, outfunc)
-  return concat(out)
+  return concat(r)
 end
 
+return {fill = fill}

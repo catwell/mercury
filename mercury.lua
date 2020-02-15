@@ -3,52 +3,28 @@ wsapi.request = require 'wsapi.request'
 wsapi.response = require 'wsapi.response'
 wsapi.util = require 'wsapi.util'
 
-module('mercury', package.seeall)
-
 local mercury_env = getfenv()
 local route_env   = setmetatable({ }, { __index = _G })
 local route_table = { GET = {}, POST = {}, PUT = {}, DELETE = {} }
 
-local application_methods = {
-    get    = function(path, method, options) add_route('GET', path, method) end,
-    post   = function(path, method, options) add_route('POST', path, method) end,
-    put    = function(path, method, options) add_route('PUT', path, method) end,
-    delete = function(path, method, options) add_route('DELETE', path, method) end,
-    helper  = function(name, method) set_helper(route_env, name, method) end,
-    helpers = function(helpers)
-        if type(helpers) == 'table' then
-            set_helpers(route_env, helpers)
-        elseif type(helpers) == 'function' then
-            local temporary_env = setmetatable({}, {
-                __newindex = function(e,k,v)
-                    set_helper(route_env, k, v)
-                end,
-            })
-            setfenv(helpers, temporary_env)()
-        else
-            -- TODO: raise an error?
-        end
-    end,
-}
-
-function set_helpers(environment, methods)
-    for name, method in pairs(methods) do
-        set_helper(environment, name, method)
-    end
-end
-
-function set_helper(environment, name, method)
+local function set_helper(environment, name, method)
     if type(method) ~= 'function' then
         error('"' .. name .. '" is an invalid helper, only functions are allowed.')
     end
     environment[name] = setfenv(method, environment)
 end
 
+local function set_helpers(environment, methods)
+    for name, method in pairs(methods) do
+        set_helper(environment, name, method)
+    end
+end
+
 --
 -- *** ext functions *** --
 --
 
-function merge_tables(...)
+function mercury_env.merge_tables(...)
     local numargs, out = select('#', ...), {}
     for i = 1, numargs do
         local t = select(i, ...)
@@ -72,18 +48,21 @@ end
    -- TODO: Create a function like setup_route_environment(fun)
     local templating_engines = {
         haml     = function(template, options, locals)
-            local haml = haml.new(options)
+            local haml = require 'haml'
+            local h = haml.new(options)
             return function(env)
-                return haml:render(template, mercury_env.merge_tables(env, locals))
+                return h:render(template, mercury_env.merge_tables(env, locals))
             end
         end,
         cosmo    = function(template, values)
-            return function(env)
+            local cosmo = require 'cosmo'
+            return function(env_)
                 return cosmo.fill(template, values)
             end
         end,
         string   = function(template, ...)
-            return function(env)
+            local arg = {...}
+            return function(env_)
                 return string.format(template, unpack(arg))
             end
         end,
@@ -108,7 +87,7 @@ end
         end,
         -- Use a table to group template-related methods to prevent name clashes.
         t    = setmetatable({ }, {
-            __index = function(env, name)
+            __index = function(env_, name)
                 local engine = templating_engines[name]
 
                 if type(engine) == nil then
@@ -130,41 +109,7 @@ setfenv(1, mercury_env) end)()
 -- *** application *** --
 --
 
-function application(application, fun)
-    if type(application) == 'string' then
-        application = { _NAME = application }
-    else
-        application = application or {}
-    end
-
-    for k, v in pairs(application_methods) do
-        application[k] = v
-    end
-
-    application.run = function(wsapi_env)
-        return run(application, wsapi_env)
-    end
-
-    local mt = { __index = _G }
-
-    if fun then
-        setfenv(fun, setmetatable(application, mt))()
-    else
-        setmetatable(application, mt)
-    end
-
-    return application
-end
-
-function add_route(verb, path, handler, options)
-    table.insert(route_table[verb], {
-        pattern = compile_url_pattern(path),
-        handler = setfenv(handler, route_env),
-        options = options,
-    })
-end
-
-function error_500(response, output)
+local function error_500(response, output)
     response.status  = 500
     response.headers = { ['Content-type'] = 'text/html' }
     response:write(
@@ -175,7 +120,7 @@ function error_500(response, output)
     return response:finish()
 end
 
-function compile_url_pattern(pattern)
+local function compile_url_pattern(pattern)
     local compiled_pattern = {
         original = pattern,
         params   = { },
@@ -205,7 +150,15 @@ function compile_url_pattern(pattern)
     return compiled_pattern
 end
 
-function extract_parameters(pattern, matches)
+local function add_route(verb, path, handler, options)
+    table.insert(route_table[verb], {
+        pattern = compile_url_pattern(path),
+        handler = setfenv(handler, route_env),
+        options = options,
+    })
+end
+
+local function extract_parameters(pattern, matches)
     local params = { }
     for i,k in ipairs(pattern.params) do
         if (k == 'splat') then
@@ -218,13 +171,13 @@ function extract_parameters(pattern, matches)
     return params
 end
 
-function extract_post_parameters(request, params)
+local function extract_post_parameters(request, params)
     for k,v in pairs(request.POST) do
         if not params[k] then params[k] = v end
     end
 end
 
-function url_match(pattern, path)
+local function url_match(pattern, path)
     local matches = { string.match(path, pattern.pattern) }
     if #matches > 0 then
         return true, extract_parameters(pattern, matches)
@@ -233,14 +186,14 @@ function url_match(pattern, path)
     end
 end
 
-function prepare_route(route, request, response, params)
+local function prepare_route(route, request, response, params)
     route_env.params   = params
     route_env.request  = request
     route_env.response = response
     return route.handler
 end
 
-function router(application, state, request, response)
+local function router(application_, state, request, response)
     local verb, path = state.vars.REQUEST_METHOD, state.vars.PATH_INFO
 
     return coroutine.wrap(function()
@@ -255,7 +208,7 @@ function router(application, state, request, response)
     end)
 end
 
-function initialize(application, wsapi_env)
+local function initialize(application, wsapi_env)
     -- TODO: Taken from Orbit! It will change soon to adapt request
     --       and response to a more suitable model.
     local web = {
@@ -302,7 +255,7 @@ function initialize(application, wsapi_env)
     return web, wsapi_req, wsapi_res
 end
 
-function run(application, wsapi_env)
+local function run(application, wsapi_env)
     local state, request, response = initialize(application, wsapi_env)
 
     for route in router(application, state, request, response) do
@@ -347,3 +300,56 @@ function run(application, wsapi_env)
 
     return 404, { ['Content-type'] = 'text/html' }, coroutine.wrap(emit_no_routes_matched)
 end
+
+local application_methods = {
+    get    = function(path, method, options_) add_route('GET', path, method) end,
+    post   = function(path, method, options_) add_route('POST', path, method) end,
+    put    = function(path, method, options_) add_route('PUT', path, method) end,
+    delete = function(path, method, options_) add_route('DELETE', path, method) end,
+    helper  = function(name, method) set_helper(route_env, name, method) end,
+    helpers = function(helpers)
+        if type(helpers) == 'table' then
+            set_helpers(route_env, helpers)
+        elseif type(helpers) == 'function' then
+            local temporary_env = setmetatable({}, {
+                __newindex = function(_, k, v)
+                    set_helper(route_env, k, v)
+                end,
+            })
+            setfenv(helpers, temporary_env)()
+        -- else
+            -- TODO: raise an error?
+        end
+    end,
+}
+
+local function app(application, fun)
+    if type(application) == 'string' then
+        application = { _NAME = application }
+    else
+        application = application or {}
+    end
+
+    for k, v in pairs(application_methods) do
+        application[k] = v
+    end
+
+    application.run = function(wsapi_env)
+        return run(application, wsapi_env)
+    end
+
+    local mt = { __index = _G }
+
+    if fun then
+        setfenv(fun, setmetatable(application, mt))()
+    else
+        setmetatable(application, mt)
+    end
+
+    return application
+end
+
+return setmetatable(
+    {application = app},
+    {__index = application_methods}
+)

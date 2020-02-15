@@ -1,8 +1,4 @@
-require 'luarocks.require'
-require 'mercury'
-require 'haml'
-
-module('fibonacci_haml', package.seeall, mercury.application)
+local mercury = require 'mercury'
 
 local templates = {
     index = [[
@@ -51,10 +47,10 @@ local templates = {
 ]],
 }
 
-helpers(function()
+mercury.helpers(function()
     function get_samples(how_many)
         local samples = {}
-        for i = 1, how_many do
+        for _ = 1, how_many do
             table.insert(samples, math.random(1, 1000000))
         end
         return samples
@@ -71,14 +67,16 @@ helpers(function()
     end
 end)
 
-get('/', function()
+mercury.get('/', function()
     t.haml(templates.index, nil, { samples = get_samples(4) })
 end)
 
-get('/fibonacci/:limit', function()
+mercury.get('/fibonacci/:limit', function()
     t.haml(templates.fibonacci)
 end)
 
-post('/fibonacci/', function()
+mercury.post('/fibonacci/', function()
     t.haml(templates.fibonacci)
 end)
+
+return mercury.application()

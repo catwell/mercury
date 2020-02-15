@@ -1,12 +1,10 @@
 require 'luarocks.require'
-require 'mercury'
+local mercury = require 'mercury'
 
 --[[
     lua-CodeGen is a "safe" template engine.
     see http://fperrad.github.com/lua-CodeGen/
 ]]
-
-module('fibonacci_codegen', package.seeall, mercury.application)
 
 local templates = {
     index = [[
@@ -78,7 +76,7 @@ local templates = {
 
 local function get_samples(how_many)
     local samples = {}
-    for i = 1, how_many do
+    for _ = 1, how_many do
         table.insert(samples, math.random(1, 1000000))
     end
     return samples
@@ -94,11 +92,11 @@ local function fibonacci(maxn)
     end)
 end
 
-get('/', function()
+mercury.get('/', function()
     t.codegen(templates, 'index', { samples = get_samples(4) })
 end)
 
-get('/fibonacci/:limit', function()
+mercury.get('/fibonacci/:limit', function()
     local numbers = {}
     for val in fibonacci(tonumber(params.limit)) do
         numbers[#numbers+1] = val
@@ -106,10 +104,12 @@ get('/fibonacci/:limit', function()
     t.codegen(templates, 'fibonacci', { numbers = numbers })
 end)
 
-post('/fibonacci/', function()
+mercury.post('/fibonacci/', function()
     local numbers = {}
     for val in fibonacci(tonumber(params.limit)) do
         numbers[#numbers+1] = val
     end
     t.codegen(templates, 'fibonacci', { numbers = numbers })
 end)
+
+return mercury.application()

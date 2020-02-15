@@ -1,11 +1,10 @@
--- You can also define your application in a dedicated environment without
--- polluting Lua's global scope, you can think of it as a sort of Sinatra::Base
+-- You can also define your application in a dedicated environment
+-- where route functions are accessible.
+-- The name of this sample is historic.
 
-require 'mercury'
+local mercury = require 'mercury'
 
-module(..., package.seeall)
-
-local myapp = mercury.application('no_pollution', function()
+return mercury.application('no_pollution', function()
     local app_name = _NAME
 
     get('/', function()
@@ -16,5 +15,3 @@ local myapp = mercury.application('no_pollution', function()
         return string.format('Hello %s!', params.name)
     end)
 end)
-
-run = myapp.run

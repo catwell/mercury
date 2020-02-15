@@ -7,13 +7,13 @@ Mercury
 Mercury aims to be a Sinatra-like web framework (or DSL, if you like) for
 creating web applications in Lua, quickly and painlessly.
 
-  require 'mercury'
+  local mercury = require 'mercury'
 
-  module('hello', package.seeall, mercury.application)
-
-  get('/', function()
+  mercury.get('/', function()
     return "Hello world!"
   end)
+
+  return mercury.application()
 
 Mercury is currently in its very early stages of development, it started like
 an hack and right now it still is nothing more than that. Having said that, I
@@ -43,7 +43,7 @@ directory and launch one of the applications like this:
 If, instead, you have simply cloned the repository, you can launch one of the
 example applications from the root directory of the project like this:
 
-    LUA_PATH="samples/?.lua;;" ./bin/mercury greetings
+    ./bin/mercury samples.greetings
 
 -- Contributors ----------------------------------------------------------------
 
